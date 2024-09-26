@@ -512,45 +512,76 @@ class Neo4jPropertyGraphStore(PropertyGraphStore):
     def get_rel_map(
         self,
         graph_nodes: List[LabelledNode],
+        query: VectorStoreQuery,
         depth: int = 2,
         limit: int = 30,
         ignore_rels: Optional[List[str]] = None,
     ) -> List[Triplet]:
         """Get depth-aware rel map."""
         triples = []
-
+        print("succesfullu modified get_rel_map")
+        print(f"this is printed at {__file__} on line 523")
         ids = [node.id for node in graph_nodes]
         # Needs some optimization
-        response = self.structured_query(
-            f"""
-            WITH $ids AS id_list
-            UNWIND range(0, size(id_list) - 1) AS idx
-            MATCH (e:`{BASE_ENTITY_LABEL}`)
-            WHERE e.id = id_list[idx]
-            MATCH p=(e)-[r*1..{depth}]-(other)
-            WHERE ALL(rel in relationships(p) WHERE type(rel) <> 'MENTIONS')
-            UNWIND relationships(p) AS rel
-            WITH distinct rel, idx
-            WITH startNode(rel) AS source,
-                type(rel) AS type,
-                rel{{.*}} AS rel_properties,
-                endNode(rel) AS endNode,
-                idx
-            LIMIT toInteger($limit)
-            RETURN source.id AS source_id, [l in labels(source)
-                   WHERE NOT l IN ['{BASE_ENTITY_LABEL}', '{BASE_NODE_LABEL}'] | l][0] AS source_type,
-                source{{.* , embedding: Null, id: Null}} AS source_properties,
-                type,
-                rel_properties,
-                endNode.id AS target_id, [l in labels(endNode)
-                   WHERE NOT l IN ['{BASE_ENTITY_LABEL}', '{BASE_NODE_LABEL}'] | l][0] AS target_type,
-                endNode{{.* , embedding: Null, id: Null}} AS target_properties,
-                idx
-            ORDER BY idx
-            LIMIT toInteger($limit)
-            """,
-            param_map={"ids": ids, "limit": limit},
-        )
+        response = self.structured_query(f"""
+                                         
+           WITH $ids AS id_list
+           UNWIND range(0, size(id_list) - 1) AS idx
+           MATCH (e:`{BASE_ENTITY_LABEL}`)
+           WHERE e.id = id_list[idx]
+           MATCH p=(e)-[r*1..{depth}]-(other)
+           WHERE ALL(rel in relationships(p) WHERE type(rel) <> 'MENTIONS')
+           UNWIND relationships(p) AS rel
+           WITH DISTINCT rel, idx
+           WITH startNode(rel) AS source,
+               type(rel) AS type,
+               rel{{.*}} AS rel_properties,
+               endNode(rel) AS endNode,
+               idx
+           LIMIT toInteger($limit)
+          
+           // Find the best matching text node for the source node
+           CALL {{
+               WITH source
+               OPTIONAL MATCH (source)-[:MENTIONS]-(text_source)
+               WHERE text_source.embedding IS NOT NULL AND size(text_source.embedding) = $dimension
+               WITH text_source, vector.similarity.cosine(text_source.embedding, $embedding) AS source_score
+               ORDER BY source_score DESC
+               LIMIT 1
+               RETURN text_source.id AS source_best_text_id, source_score AS source_best_score
+           }}
+          
+           // Find the best matching text node for the end node
+           CALL {{
+               WITH endNode
+               OPTIONAL MATCH (endNode)-[:MENTIONS]-(text_target)
+               WHERE text_target.embedding IS NOT NULL AND size(text_target.embedding) = $dimension
+               WITH text_target, vector.similarity.cosine(text_target.embedding, $embedding) AS target_score
+               ORDER BY target_score DESC
+               LIMIT 1
+               RETURN text_target.id AS target_best_text_id, target_score AS target_best_score
+           }}
+          
+           RETURN source.id AS source_id,
+               [l IN labels(source) WHERE NOT l IN ['{BASE_ENTITY_LABEL}', '{BASE_NODE_LABEL}'] | l][0] AS source_type,
+               source{{ .*, embedding: NULL, id: NULL, best_text_id: source_best_text_id, best_text_score: source_best_score }} AS source_properties,
+               type,
+               rel_properties,
+               endNode.id AS target_id,
+               [l IN labels(endNode) WHERE NOT l IN ['{BASE_ENTITY_LABEL}', '{BASE_NODE_LABEL}'] | l][0] AS target_type,
+               endNode{{ .*, embedding: NULL, id: NULL, best_text_id: target_best_text_id, best_text_score: target_best_score }} AS target_properties,
+               idx
+           ORDER BY idx
+           LIMIT toInteger($limit)
+           """,
+           param_map={
+               "ids": ids,
+               "limit": limit,
+               "embedding": query.query_embedding,
+               "dimension": len(query.query_embedding),
+           },
+       )
+
         response = response if response else []
 
         ignore_rels = ignore_rels or []
