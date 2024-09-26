@@ -38,37 +38,47 @@ class BasePGRetriever(BaseRetriever):
         graph_store: PropertyGraphStore,
         include_text: bool = True,
         include_text_preamble: Optional[str] = DEFAULT_PREAMBLE,
+        include_properties: bool = False,
         **kwargs: Any,
     ) -> None:
         self._graph_store = graph_store
         self.include_text = include_text
         self._include_text_preamble = include_text_preamble
+        self.include_properties = include_properties
         super().__init__(callback_manager=kwargs.get("callback_manager", None))
 
     def _get_nodes_with_score(
-        self, triplets: List[Triplet], scores: Optional[List[float]] = None
-    ) -> List[NodeWithScore]:
-        results = []
-        for i, triplet in enumerate(triplets):
-            source_id = triplet[0].properties.get(TRIPLET_SOURCE_KEY, None)
-            relationships = {}
-            if source_id is not None:
-                relationships[NodeRelationship.SOURCE] = RelatedNodeInfo(
-                    node_id=source_id
-                )
+       self, triplets: List[Triplet], scores: Optional[List[float]] = None
+   ) -> List[NodeWithScore]:
+       results = []
 
-            text = f"{triplet[0]!s} -> {triplet[1]!s} -> {triplet[2]!s}"
-            results.append(
-                NodeWithScore(
-                    node=TextNode(
-                        text=text,
-                        relationships=relationships,
-                    ),
-                    score=1.0 if scores is None else scores[i],
-                )
-            )
+       print("succesfully modified _get_nodes_with_score")
+       print(f"this is printed at {__file__} line 56")
+       for i, triplet in enumerate(triplets):
+           source_id = triplet[0].properties.get("best_text_id", None)
+           relationships = {}
+           if source_id is not None:
+               relationships[NodeRelationship.SOURCE] = RelatedNodeInfo(
+                   node_id=source_id
+               )
 
-        return results
+
+           text = f"{triplet[0]!s} -> {triplet[1]!s} -> {triplet[2]!s}"
+           results.append(
+               NodeWithScore(
+                   node=TextNode(
+                       text=text,
+                       relationships=relationships,
+                   ),
+                   score=1.0 if scores is None else scores[i],
+               )
+           )
+      
+
+
+
+       return results
+
 
     def _add_source_text(
         self, retrieved_nodes: List[NodeWithScore], og_node_map: Dict[str, BaseNode]
@@ -91,7 +101,7 @@ class BasePGRetriever(BaseRetriever):
                 graph_content = graph_node_map.get(mapped_node.node_id, [])
                 if len(graph_content) > 0:
                     graph_content_str = "\n".join(graph_content)
-                    cur_content = mapped_node.get_content()
+                    cur_content = node.get_content()
                     preamble_text = (
                         self._include_text_preamble
                         if self._include_text_preamble
