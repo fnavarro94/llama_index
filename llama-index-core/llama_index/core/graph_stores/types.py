@@ -456,12 +456,14 @@ class PropertyGraphStore(ABC):
     async def aget_rel_map(
         self,
         graph_nodes: List[LabelledNode],
+        query: VectorStoreQuery,
         depth: int = 2,
         limit: int = 30,
         ignore_rels: Optional[List[str]] = None,
     ) -> List[Triplet]:
         """Asynchronously get depth-aware rel map."""
-        return self.get_rel_map(graph_nodes, depth, limit, ignore_rels)
+        
+        return self.get_rel_map(graph_nodes, query, depth, limit, ignore_rels)
 
     async def aget_llama_nodes(self, node_ids: List[str]) -> List[BaseNode]:
         """Asynchronously get nodes."""
