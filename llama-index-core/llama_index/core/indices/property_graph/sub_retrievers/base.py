@@ -48,32 +48,37 @@ class BasePGRetriever(BaseRetriever):
         super().__init__(callback_manager=kwargs.get("callback_manager", None))
 
     def _get_nodes_with_score(
-        self, triplets: List[Triplet], scores: Optional[List[float]] = None
-    ) -> List[NodeWithScore]:
-        results = []
-        for i, triplet in enumerate(triplets):
-            source_id = triplet[0].properties.get(TRIPLET_SOURCE_KEY, None)
-            relationships = {}
-            if source_id is not None:
-                relationships[NodeRelationship.SOURCE] = RelatedNodeInfo(
-                    node_id=source_id
-                )
+       self, triplets: List[Triplet], scores: Optional[List[float]] = None
+   ) -> List[NodeWithScore]:
+       results = []
 
-            if self.include_properties:
-                text = f"{triplet[0]!s} -> {triplet[1]!s} -> {triplet[2]!s}"
-            else:
-                text = f"{triplet[0].id} -> {triplet[1].id} -> {triplet[2].id}"
-            results.append(
-                NodeWithScore(
-                    node=TextNode(
-                        text=text,
-                        relationships=relationships,
-                    ),
-                    score=1.0 if scores is None else scores[i],
-                )
-            )
+       print("succesfully modified _get_nodes_with_score")
+       print(f"this is printed at {__file__} line 56")
+       for i, triplet in enumerate(triplets):
+           source_id = triplet[0].properties.get("best_text_id", None)
+           relationships = {}
+           if source_id is not None:
+               relationships[NodeRelationship.SOURCE] = RelatedNodeInfo(
+                   node_id=source_id
+               )
 
-        return results
+
+           text = f"{triplet[0]!s} -> {triplet[1]!s} -> {triplet[2]!s}"
+           results.append(
+               NodeWithScore(
+                   node=TextNode(
+                       text=text,
+                       relationships=relationships,
+                   ),
+                   score=1.0 if scores is None else scores[i],
+               )
+           )
+      
+
+
+
+       return results
+
 
     def _add_source_text(
         self, retrieved_nodes: List[NodeWithScore], og_node_map: Dict[str, BaseNode]
@@ -93,7 +98,7 @@ class BasePGRetriever(BaseRetriever):
             mapped_node = og_node_map.get(node_with_score.node.ref_doc_id or "", None)
 
             if mapped_node:
-                graph_content = graph_node_map.get(node.node_id, [])
+                graph_content = graph_node_map.get(mapped_node.node_id, [])
                 if len(graph_content) > 0:
                     graph_content_str = "\n".join(graph_content)
                     cur_content = node.get_content()
@@ -105,7 +110,7 @@ class BasePGRetriever(BaseRetriever):
                     new_content = (
                         preamble_text + graph_content_str + "\n\n" + cur_content
                     )
-                    mapped_node = TextNode(**node.dict())
+                    mapped_node = TextNode(**mapped_node.dict())
                     mapped_node.text = new_content
                 result_nodes.append(
                     NodeWithScore(
