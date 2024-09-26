@@ -462,7 +462,8 @@ class PropertyGraphStore(ABC):
         ignore_rels: Optional[List[str]] = None,
     ) -> List[Triplet]:
         """Asynchronously get depth-aware rel map."""
-        
+        print(f"succesfully modified aget_rel_map")
+        print(f"this is printed at {__file__} at line 466")
         return self.get_rel_map(graph_nodes, query, depth, limit, ignore_rels)
 
     async def aget_llama_nodes(self, node_ids: List[str]) -> List[BaseNode]:
