@@ -653,6 +653,8 @@ class Neo4jPropertyGraphStore(PropertyGraphStore):
                 },
             )
         else:
+
+            print("You are running the modified version of Neo4jPropertyGraphStore")
             data = self.structured_query(
                 f"""MATCH (e:`{BASE_ENTITY_LABEL}`)
                 WHERE e.embedding IS NOT NULL AND size(e.embedding) = $dimension AND ({filters})
