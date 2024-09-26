@@ -43,6 +43,7 @@ class VectorContextRetriever(BasePGRetriever):
         self,
         graph_store: PropertyGraphStore,
         include_text: bool = True,
+        include_properties: bool = False,
         embed_model: Optional[BaseEmbedding] = None,
         vector_store: Optional[BasePydanticVectorStore] = None,
         similarity_top_k: int = 4,
@@ -59,7 +60,12 @@ class VectorContextRetriever(BasePGRetriever):
         self._similarity_score = similarity_score
         self._filters = filters
 
-        super().__init__(graph_store=graph_store, include_text=include_text, **kwargs)
+        super().__init__(
+            graph_store=graph_store,
+            include_text=include_text,
+            include_properties=include_properties,
+            **kwargs,
+        )
 
     def _get_vector_store_query(self, query_bundle: QueryBundle) -> VectorStoreQuery:
         if query_bundle.embedding is None:
@@ -159,6 +165,8 @@ class VectorContextRetriever(BasePGRetriever):
     async def aretrieve_from_graph(
         self, query_bundle: QueryBundle
     ) -> List[NodeWithScore]:
+        print("succesffully modified the callin of aget_rel_map which runs in aretrieve_from_graph")
+        print(f"this is bein printed at {__file__} on line 169")
         vector_store_query = await self._aget_vector_store_query(query_bundle)
 
         triplets = []
@@ -172,7 +180,7 @@ class VectorContextRetriever(BasePGRetriever):
             kg_nodes, scores = result
             kg_ids = [node.id for node in kg_nodes]
             triplets = await self._graph_store.aget_rel_map(
-                kg_nodes, depth=self._path_depth, ignore_rels=[KG_SOURCE_REL]
+                kg_nodes, query=vector_store_query, depth=self._path_depth, ignore_rels=[KG_SOURCE_REL]
             )
 
         elif self._vector_store is not None:
@@ -182,7 +190,7 @@ class VectorContextRetriever(BasePGRetriever):
                 scores = query_result.similarities
                 kg_nodes = await self._graph_store.aget(ids=kg_ids)
                 triplets = await self._graph_store.aget_rel_map(
-                    kg_nodes, depth=self._path_depth, ignore_rels=[KG_SOURCE_REL]
+                    kg_nodes,query=vector_store_query, depth=self._path_depth, ignore_rels=[KG_SOURCE_REL]
                 )
 
             elif query_result.ids is not None and query_result.similarities is not None:
@@ -190,7 +198,7 @@ class VectorContextRetriever(BasePGRetriever):
                 scores = query_result.similarities
                 kg_nodes = await self._graph_store.aget(ids=kg_ids)
                 triplets = await self._graph_store.aget_rel_map(
-                    kg_nodes, depth=self._path_depth, ignore_rels=[KG_SOURCE_REL]
+                    kg_nodes,query=vector_store_query, depth=self._path_depth, ignore_rels=[KG_SOURCE_REL]
                 )
 
         for triplet in triplets:
